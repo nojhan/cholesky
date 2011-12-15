@@ -197,6 +197,7 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         if( errors[a].size() == 0 ) {
             std::cout << "NAN";
         } else {
+            assert( errors[a].size() == R - fails[a] );
             std::cout << sum(errors[a])/R;
         }
         std::cout << std::endl;
