@@ -161,6 +161,8 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         }
         
         // a variance-covariance matrix of size N*N
+        // Note: a covariance matrix is necessarily semi-positive definite
+        //       thus, any failure in the Cholesky factorization is due to round-off errors
         CovarMat V = ublas::prod( ublas::trans(S), S );
         assert( V.size1() == N && V.size2() == N );
 #ifndef NDEBUG

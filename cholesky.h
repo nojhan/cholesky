@@ -21,7 +21,9 @@ Authors:
     Caner Candan <caner.candan@thalesgroup.com>
 */
 
+#include <string>
 #include <stdexcept>
+#include <cmath>
 
 #include <boost/numeric/ublas/symmetric.hpp>
 using namespace boost::numeric;
@@ -277,11 +279,12 @@ public:
     }
 
 
+    /** Compute the final symetric matrix: _L = L D^1/2
+     * remember that V = ( L D^1/2) ( L D^1/2)^T
+     * the factorization is thus L*D^1/2
+     */
     inline typename Cholesky<T>::FactorMat root( typename Cholesky<T>::FactorMat& L, typename Cholesky<T>::FactorMat& D )
     {
-        // now compute the final symetric matrix: this->_L = L D^1/2
-        // remember that V = ( L D^1/2) ( L D^1/2)^T
-
         // fortunately, the square root of a diagonal matrix is the square 
         // root of all its elements
         typename Cholesky<T>::FactorMat sqrt_D = D;
@@ -289,7 +292,6 @@ public:
             sqrt_D(i,i) = sqrt(D(i,i));
         }
 
-        // the factorization is thus L*D^1/2
         return ublas::prod( L, sqrt_D );
     }
 };
