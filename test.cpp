@@ -152,11 +152,15 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         CovarMat V = ublas::prod( ublas::trans(S), S );
         assert( V.size1() == N && V.size2() == N );
 
+#ifndef NDEBUG
         if( R == 1 ) {
             std::cout << std::endl << "Covariance matrix:" << std::endl;
             std::cout << format(V) << std::endl;
         }
+#endif
 
+        // The LLT algorithm can fail on a sqrt(x<0) and throw an error
+        // we thus count the failures
         FactorMat L0; 
         try {
             L0 = llt(V);
@@ -170,7 +174,9 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         }
 
         FactorMat L1 = llta(V);
+        // reconstruct the covariance matrix
         CovarMat V1 = ublas::prod( L1, ublas::trans(L1) );
+        // store the triangular error distance with the initial covar matrix
         s1.push_back( trigsum(error(V,V1)) );
 
         FactorMat L2 = lltz(V);
@@ -230,4 +236,7 @@ int main(int argc, char** argv)
 
     std::cout << std::endl << "DOUBLE" << std::endl;
     test<double>(M,N,F,R,seed);
+
+    std::cout << std::endl << "LONG DOUBLE" << std::endl;
+    test<long double>(M,N,F,R,seed);
 }
