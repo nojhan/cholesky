@@ -1,3 +1,29 @@
+/*
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+Copyright (C) 2010 Thales group
+*/
+/*
+Authors:
+    Johann Dréo <johann.dreo@thalesgroup.com>
+*/
+
+#include <iostream>
+#include <limits>
+#include <iomanip>
+#include <numeric>
 
 #include "cholesky.h"
 
@@ -79,7 +105,7 @@ MT error( const MT& M1, const MT& M2 )
 template<typename MT >
 double trigsum( const MT& M )
 {
-    double sum;
+    double sum = 0;
     for( unsigned int i=0; i<M.size1(); ++i ) {
         for( unsigned int j=i; j<M.size2(); ++j ) { // triangular browsing
             sum += fabs( M(i,j) ); // absolute deviation
@@ -96,52 +122,77 @@ double sum( const T& c )
 }
 
 
-typedef double real;
 
 
 int main(int argc, char** argv)
 {
     srand(time(0));
 
-    unsigned int N = 4; // size of matrix
-    unsigned int R = 1000; // nb of repetitions
+    unsigned int M = 10; // sample size
+    unsigned int N = 12; // variables number
+    unsigned int F = 10; // range factor
+    unsigned int R = 1; // nb of repetitions
 
     if( argc >= 2 ) {
-        N = std::atoi(argv[1]);
+        M = std::atoi(argv[1]);
     }
     if( argc >= 3 ) {
-        R = std::atoi(argv[2]);
+        N = std::atoi(argv[2]);
+    }
+    if( argc >= 4 ) {
+        F = std::atoi(argv[3]);
+    }
+    if( argc >= 5 ) {
+        R = std::atoi(argv[4]);
     }
 
-    std::cout << "Usage: t-cholesky [matrix size] [repetitions]" << std::endl;
-    std::cout << "matrix size = " << N << std::endl;
-    std::cout << "repetitions = " << R << std::endl;
+    std::clog << "Usage: test [sample size] [variables number] [random range] [repetitions]" << std::endl;
+    std::clog << "\tsample size  = " << M << std::endl;
+    std::clog << "\tmatrix size  = " << N << std::endl;
+    std::clog << "\trandom range = " << F << std::endl;
+    std::clog << "\trepetitions  = " << R << std::endl;
 
-    typedef cholesky::Cholesky::CovarMat CovarMat;
-    typedef cholesky::Cholesky::FactorMat FactorMat;
+    typedef double real;
+    typedef cholesky::Cholesky<real>::CovarMat CovarMat;
+    typedef cholesky::Cholesky<real>::FactorMat FactorMat;
 
-    cholesky::LLT     llt();
-    cholesky::LLTabs  llta();
-    cholesky::LLTzero lltz();
-    cholesky::LDLT    ldlt();
+    cholesky::LLT<real>     llt;
+    cholesky::LLTabs<real>  llta;
+    cholesky::LLTzero<real> lltz;
+    cholesky::LDLT<real>    ldlt;
 
+    unsigned int llt_fail = 0;
     std::vector<double> s0,s1,s2,s3;
     for( unsigned int n=0; n<R; ++n ) {
 
-        // a variance-covariance matrix of size N*N
-        CovarMat V(N,N);
-
-        // random covariance matrix
-        for( unsigned int i=0; i<N; ++i) {
-            V(i,i) = std::pow(rand(),2); // variance should be >= 0
-            for( unsigned int j=i+1; j<N; ++j) {
-                V(i,j) = rand();
+        // a random sample matrix
+        ublas::matrix<real> S(M,N);
+        for( unsigned int i=0; i<M; ++i) {
+            for( unsigned int j=0; j<N; ++j) {
+                S(i,j) = F * static_cast<real>(rand())/RAND_MAX;
             }
         }
+        
+        // a variance-covariance matrix of size N*N
+        CovarMat V = ublas::prod( ublas::trans(S), S );
+        assert( V.size1() == N && V.size2() == N );
 
-        FactorMat L0 = llt(V);
-        CovarMat V0 = ublas::prod( L0, ublas::trans(L0) );
-        s0.push_back( trigsum(error(V,V0)) );
+        if( R == 1 ) {
+            std::cout << std::endl << "Covariance matrix:" << std::endl;
+            std::cout << format(V) << std::endl;
+        }
+
+        FactorMat L0; 
+        try {
+            L0 = llt(V);
+            CovarMat V0 = ublas::prod( L0, ublas::trans(L0) );
+            s0.push_back( trigsum(error(V,V0)) );
+        } catch( cholesky::NotDefinitePositive & error ) {
+            llt_fail++;
+#ifndef NDEBUG
+            std::cout << "LLT FAILED:\t" << error.what() << std::endl;
+#endif
+        }
 
         FactorMat L1 = llta(V);
         CovarMat V1 = ublas::prod( L1, ublas::trans(L1) );
@@ -157,8 +208,16 @@ int main(int argc, char** argv)
     }
 
     std::cout << "Average error:" << std::endl;
-    std::cout << "\tLLT:  " << sum(s0)/R << std::endl;
+    
+    std::cout << "\tLLT:  ";
+    if( s0.size() == 0 ) {
+        std::cout << "NAN";
+    } else {
+        std::cout << sum(s0)/R;
+    }
+    std::cout << "\t" << llt_fail << "/" << R << " failures" << std::endl;
+
     std::cout << "\tLLTa: " << sum(s1)/R << std::endl;
     std::cout << "\tLLTz: " << sum(s2)/R << std::endl;
     std::cout << "\tLDLT: " << sum(s3)/R << std::endl;
-
+}

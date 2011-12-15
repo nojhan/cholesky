@@ -21,7 +21,19 @@ Authors:
     Caner Candan <caner.candan@thalesgroup.com>
 */
 
+#include <stdexcept>
+
+#include <boost/numeric/ublas/symmetric.hpp>
+using namespace boost::numeric;
+
 namespace cholesky {
+
+class NotDefinitePositive : public std::runtime_error
+{
+public:
+    NotDefinitePositive( const std::string & what ) : std::runtime_error( what ) {}
+};
+
 
 /** Cholesky decomposition, given a matrix V, return a matrix L
  * such as V = L L^T (L^T being the transposed of L).
@@ -31,7 +43,7 @@ namespace cholesky {
  * Thus, expect a (lower) triangular matrix.
  */
 template< typename T >
-class CholeskyBase
+class Cholesky
 {
 public:
     //! The covariance-matrix is symetric
@@ -58,12 +70,12 @@ public:
     }
 
     /** Compute the factorization and cache the result */
-    virtual void operator()( const CovarMat& V ) = 0;
+    virtual void factorize( const CovarMat& V ) = 0;
 
     /** Compute the factorization and return the result */
-    virtual const FactorMat& operator()( const CovarMat& V ) 
+    const FactorMat& operator()( const CovarMat& V )
     {
-        (*this)( V );
+        this->factorize(V);
         return decomposition();
     }
 
@@ -123,19 +135,19 @@ protected:
  * will raise an assert before calling the square root on a negative number.
  */
 template< typename T >
-class CholeskyLLT : public CholeskyBase<T>
+class LLT : public Cholesky<T>
 {
 public:
-    virtual void operator()( const CovarMat& V )
+    virtual void factorize( const typename Cholesky<T>::CovarMat& V )
     {
         unsigned int N = assert_properties( V );
 
         unsigned int i=0, j=0, k;
-        _L(0, 0) = sqrt( V(0, 0) );
+        this->_L(0, 0) = sqrt( V(0, 0) );
 
         // end of the column
         for ( j = 1; j < N; ++j ) {
-            _L(j, 0) = V(0, j) / _L(0, 0);
+            this->_L(j, 0) = V(0, j) / this->_L(0, 0);
         }
 
         // end of the matrix
@@ -143,32 +155,36 @@ public:
             // diagonal
             double sum = 0.0;
             for ( k = 0; k < i; ++k) {
-                sum += _L(i, k) * _L(i, k);
+                sum += this->_L(i, k) * this->_L(i, k);
             }
 
-            _L(i,i) = L_i_i( V, i, sum );
+            this->_L(i,i) = L_i_i( V, i, sum );
 
             for ( j = i + 1; j < N; ++j ) { // rows
                 // one element
                 sum = 0.0;
                 for ( k = 0; k < i; ++k ) {
-                    sum += _L(j, k) * _L(i, k);
+                    sum += this->_L(j, k) * this->_L(i, k);
                 }
 
-                _L(j, i) = (V(j, i) - sum) / _L(i, i);
+                this->_L(j, i) = (V(j, i) - sum) / this->_L(i, i);
 
             } // for j in ]i,N[
         } // for i in [1,N[
     }
 
-
     /** The step of the standard LLT algorithm where round off errors may appear */
-    inline virtual L_i_i( const CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
     {
         // round-off errors may appear here
-        assert( V(i,i) - sum >= 0 );
+        if( V(i,i) - sum < 0 ) {
+            std::ostringstream oss;
+            oss << "V(" << i << "/" << V.size1() << ")=" << V(i,i) << " - sum=" << sum << "\t== " << V(i,i)-sum << " < 0 ";
+            throw NotDefinitePositive(oss.str());
+        }
         return sqrt( V(i,i) - sum );
     }
+
 };
 
 
@@ -181,10 +197,10 @@ public:
  * hack to avoid crash.
  */
 template< typename T >
-class CholeskyLLTabs : public CholeskyLLT<T>
+class LLTabs : public LLT<T>
 {
 public:
-    inline virtual L_i_i( const CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
     {
         /***** ugly hack *****/
         return sqrt( fabs( V(i,i) - sum) );
@@ -200,10 +216,10 @@ public:
  * hack to avoid crash.
  */
 template< typename T >
-class CholeskyLLTzero : public CholeskyLLT<T>
+class LLTzero : public LLT<T>
 {
 public:
-    inline virtual L_i_i( const CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
     {
         T Lii;
         if(  V(i,i) - sum >= 0 ) {
@@ -224,18 +240,18 @@ public:
  * The factorized matrix is (L D^1/2), because V = (L D^1/2) (L D^1/2)^T
  */
 template< typename T >
-class CholeskyLDLT : public CholeskyBase<T>
+class LDLT : public Cholesky<T>
 {
 public:
-    virtual void operator()( const CovarMat& V )
+    virtual void factorize( const typename Cholesky<T>::CovarMat& V )
     {
         // use "int" everywhere, because of the "j-1" operation
         int N = assert_properties( V );
         // example of an invertible matrix whose decomposition is undefined
         assert( V(0,0) != 0 ); 
 
-        FactorMat L = ublas::zero_matrix<T>(N,N);
-        FactorMat D = ublas::zero_matrix<T>(N,N);
+        typename Cholesky<T>::FactorMat L = ublas::zero_matrix<T>(N,N);
+        typename Cholesky<T>::FactorMat D = ublas::zero_matrix<T>(N,N);
         D(0,0) = V(0,0);
 
         for( int j=0; j<N; ++j ) { // each columns
@@ -257,19 +273,19 @@ public:
             } // for i in rows
         } // for j in columns
         
-        _L = root( L, D );
+        this->_L = root( L, D );
     }
 
 
-    inline FactorMat root( FactorMat& L, FactorMat& D )
+    inline typename Cholesky<T>::FactorMat root( typename Cholesky<T>::FactorMat& L, typename Cholesky<T>::FactorMat& D )
     {
-        // now compute the final symetric matrix: _L = L D^1/2
+        // now compute the final symetric matrix: this->_L = L D^1/2
         // remember that V = ( L D^1/2) ( L D^1/2)^T
 
         // fortunately, the square root of a diagonal matrix is the square 
         // root of all its elements
-        FactorMat sqrt_D = D;
-        for(int i=0; i<N; ++i) {
+        typename Cholesky<T>::FactorMat sqrt_D = D;
+        for(unsigned int i=0; i<D.size1(); ++i) {
             sqrt_D(i,i) = sqrt(D(i,i));
         }
 
