@@ -24,6 +24,9 @@ Authors:
 #include <limits>
 #include <iomanip>
 #include <numeric>
+#include <string>
+#include <map>
+#include <vector>
 
 #include "cholesky.h"
 
@@ -130,14 +133,23 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
 
     typedef typename cholesky::Cholesky<T>::CovarMat CovarMat;
     typedef typename cholesky::Cholesky<T>::FactorMat FactorMat;
+    typedef typename std::map< std::string, cholesky::Cholesky<T>* > AlgoMap;
+    
+    AlgoMap algos;
+    algos["LLT"]  = new cholesky::LLT<T>;
+    algos["LLTa"] = new cholesky::LLTabs<T>;
+    algos["LLTz"] = new cholesky::LLTzero<T>;
+    algos["LDLT"] = new cholesky::LDLT<T>;
 
-    cholesky::LLT<T>     llt;
-    cholesky::LLTabs<T>  llta;
-    cholesky::LLTzero<T> lltz;
-    cholesky::LDLT<T>    ldlt;
+    // init data structures on the same keys than given algorithms
+    std::map<std::string,unsigned int> fails;
+    // triangular errors sum
+    std::map<std::string, std::vector<double> > errors;
+    for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
+         fails[ialgo->first] = 0;
+        errors[ialgo->first] = std::vector<double>();
+    }
 
-    unsigned int llt_fail = 0;
-    std::vector<double> s0,s1,s2,s3;
     for( unsigned int n=0; n<R; ++n ) {
 
         // a random sample matrix
@@ -159,48 +171,36 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         }
 #endif
 
-        // The LLT algorithm can fail on a sqrt(x<0) and throw an error
-        // we thus count the failures
-        FactorMat L0; 
-        try {
-            L0 = llt(V);
-            CovarMat V0 = ublas::prod( L0, ublas::trans(L0) );
-            s0.push_back( trigsum(error(V,V0)) );
-        } catch( cholesky::NotDefinitePositive & error ) {
-            llt_fail++;
+        for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
+            // The LLT algorithm can fail on a sqrt(x<0) and throw an error
+            // we thus count the failures
+            FactorMat L; 
+            try {
+                L = (*ialgo->second)(V);
+                CovarMat Vn = ublas::prod( L, ublas::trans(L) );
+                errors[ialgo->first].push_back( trigsum(error(V,Vn)) );
+
+            } catch( cholesky::NotDefinitePositive & error ) {
+                fails[ialgo->first]++;
 #ifndef NDEBUG
-            std::cout << "LLT FAILED:\t" << error.what() << std::endl;
+                std::cout << "FAILED:\t" << error.what() << std::endl;
 #endif
+            }
+
+        } // for ialgo in algos
+    } // for n in R
+
+    for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
+        std::string a = ialgo->first;
+
+        std::cout << "\t" << a << ": (" << fails[a] << "/" << R << ")\t";
+        if( errors[a].size() == 0 ) {
+            std::cout << "NAN";
+        } else {
+            std::cout << sum(errors[a])/R;
         }
-
-        FactorMat L1 = llta(V);
-        // reconstruct the covariance matrix
-        CovarMat V1 = ublas::prod( L1, ublas::trans(L1) );
-        // store the triangular error distance with the initial covar matrix
-        s1.push_back( trigsum(error(V,V1)) );
-
-        FactorMat L2 = lltz(V);
-        CovarMat V2 = ublas::prod( L2, ublas::trans(L2) );
-        s2.push_back( trigsum(error(V,V2)) );
-
-        FactorMat L3 = ldlt(V);
-        CovarMat V3 = ublas::prod( L3, ublas::trans(L3) );
-        s3.push_back( trigsum(error(V,V3)) );
-    }
-
-    std::cout << "Average error:" << std::endl;
-    
-    std::cout << "\tLLT:  ";
-    if( s0.size() == 0 ) {
-        std::cout << "NAN";
-    } else {
-        std::cout << sum(s0)/R;
-    }
-    std::cout << "\t" << llt_fail << "/" << R << " failures" << std::endl;
-
-    std::cout << "\tLLTa: " << sum(s1)/R << std::endl;
-    std::cout << "\tLLTz: " << sum(s2)/R << std::endl;
-    std::cout << "\tLDLT: " << sum(s3)/R << std::endl;
+        std::cout << std::endl;
+    } // for a in algos
 }
 
 
@@ -230,6 +230,8 @@ int main(int argc, char** argv)
     std::clog << "\tmatrix size  = " << N << std::endl;
     std::clog << "\trandom range = " << F << std::endl;
     std::clog << "\trepetitions  = " << R << std::endl;
+    std::clog << "Legend:" << std::endl;
+    std::clog << "\tAlgo: (failures/runs)\tAverage error" << std::endl;
 
     std::cout << std::endl << "FLOAT" << std::endl;
     test<float>(M,N,F,R,seed);

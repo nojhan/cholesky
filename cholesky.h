@@ -289,7 +289,7 @@ public:
             sqrt_D(i,i) = sqrt(D(i,i));
         }
 
-        // the factorization is thus _L*D^1/2
+        // the factorization is thus L*D^1/2
         return ublas::prod( L, sqrt_D );
     }
 };
