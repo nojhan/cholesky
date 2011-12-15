@@ -123,53 +123,28 @@ double sum( const T& c )
 
 
 
-
-int main(int argc, char** argv)
+template< typename T >
+void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsigned int seed = time(0) )
 {
-    srand(time(0));
+    srand(seed);
 
-    unsigned int M = 10; // sample size
-    unsigned int N = 12; // variables number
-    unsigned int F = 10; // range factor
-    unsigned int R = 1; // nb of repetitions
+    typedef typename cholesky::Cholesky<T>::CovarMat CovarMat;
+    typedef typename cholesky::Cholesky<T>::FactorMat FactorMat;
 
-    if( argc >= 2 ) {
-        M = std::atoi(argv[1]);
-    }
-    if( argc >= 3 ) {
-        N = std::atoi(argv[2]);
-    }
-    if( argc >= 4 ) {
-        F = std::atoi(argv[3]);
-    }
-    if( argc >= 5 ) {
-        R = std::atoi(argv[4]);
-    }
-
-    std::clog << "Usage: test [sample size] [variables number] [random range] [repetitions]" << std::endl;
-    std::clog << "\tsample size  = " << M << std::endl;
-    std::clog << "\tmatrix size  = " << N << std::endl;
-    std::clog << "\trandom range = " << F << std::endl;
-    std::clog << "\trepetitions  = " << R << std::endl;
-
-    typedef double real;
-    typedef cholesky::Cholesky<real>::CovarMat CovarMat;
-    typedef cholesky::Cholesky<real>::FactorMat FactorMat;
-
-    cholesky::LLT<real>     llt;
-    cholesky::LLTabs<real>  llta;
-    cholesky::LLTzero<real> lltz;
-    cholesky::LDLT<real>    ldlt;
+    cholesky::LLT<T>     llt;
+    cholesky::LLTabs<T>  llta;
+    cholesky::LLTzero<T> lltz;
+    cholesky::LDLT<T>    ldlt;
 
     unsigned int llt_fail = 0;
     std::vector<double> s0,s1,s2,s3;
     for( unsigned int n=0; n<R; ++n ) {
 
         // a random sample matrix
-        ublas::matrix<real> S(M,N);
+        ublas::matrix<T> S(M,N);
         for( unsigned int i=0; i<M; ++i) {
             for( unsigned int j=0; j<N; ++j) {
-                S(i,j) = F * static_cast<real>(rand())/RAND_MAX;
+                S(i,j) = F * static_cast<T>(rand())/RAND_MAX;
             }
         }
         
@@ -220,4 +195,39 @@ int main(int argc, char** argv)
     std::cout << "\tLLTa: " << sum(s1)/R << std::endl;
     std::cout << "\tLLTz: " << sum(s2)/R << std::endl;
     std::cout << "\tLDLT: " << sum(s3)/R << std::endl;
+}
+
+
+int main(int argc, char** argv)
+{
+    unsigned int seed = time(0);
+    unsigned int M = 10; // sample size
+    unsigned int N = 12; // variables number
+    unsigned int F = 10; // range factor
+    unsigned int R = 1; // nb of repetitions
+
+    if( argc >= 2 ) {
+        M = std::atoi(argv[1]);
+    }
+    if( argc >= 3 ) {
+        N = std::atoi(argv[2]);
+    }
+    if( argc >= 4 ) {
+        F = std::atoi(argv[3]);
+    }
+    if( argc >= 5 ) {
+        R = std::atoi(argv[4]);
+    }
+
+    std::clog << "Usage: test [sample size] [variables number] [random range] [repetitions]" << std::endl;
+    std::clog << "\tsample size  = " << M << std::endl;
+    std::clog << "\tmatrix size  = " << N << std::endl;
+    std::clog << "\trandom range = " << F << std::endl;
+    std::clog << "\trepetitions  = " << R << std::endl;
+
+    std::cout << std::endl << "FLOAT" << std::endl;
+    test<float>(M,N,F,R,seed);
+
+    std::cout << std::endl << "DOUBLE" << std::endl;
+    test<double>(M,N,F,R,seed);
 }
