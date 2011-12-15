@@ -163,14 +163,12 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         // a variance-covariance matrix of size N*N
         CovarMat V = ublas::prod( ublas::trans(S), S );
         assert( V.size1() == N && V.size2() == N );
-
 #ifndef NDEBUG
         if( R == 1 ) {
             std::cout << std::endl << "Covariance matrix:" << std::endl;
             std::cout << format(V) << std::endl;
         }
 #endif
-
         for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
             // The LLT algorithm can fail on a sqrt(x<0) and throw an error
             // we thus count the failures
@@ -182,9 +180,11 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
 
             } catch( cholesky::NotDefinitePositive & error ) {
                 fails[ialgo->first]++;
+/*
 #ifndef NDEBUG
                 std::cout << "FAILED:\t" << error.what() << std::endl;
 #endif
+*/
             }
 
         } // for ialgo in algos
