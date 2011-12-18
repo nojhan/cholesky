@@ -133,8 +133,8 @@ protected:
  *
  * Compute L such that V = L L^T
  *
- * When compiled in debug mode and called on ill-conditionned matrix,
- * will raise an assert before calling the square root on a negative number.
+ * When called on ill-conditionned matrix,
+ * will raise an exception before calling the square root on a negative number.
  */
 template< typename T >
 class LLT : public Cholesky<T>
@@ -148,24 +148,24 @@ public:
         this->_L(0, 0) = sqrt( V(0, 0) );
 
         // end of the column
-        for ( j = 1; j < N; ++j ) {
+        for( j = 1; j < N; ++j ) {
             this->_L(j, 0) = V(0, j) / this->_L(0, 0);
         }
 
         // end of the matrix
-        for ( i = 1; i < N; ++i ) { // each column
+        for( i = 1; i < N; ++i ) { // each column
             // diagonal
-            double sum = 0.0;
-            for ( k = 0; k < i; ++k) {
+            T sum = 0.0;
+            for( k = 0; k < i; ++k) {
                 sum += this->_L(i, k) * this->_L(i, k);
             }
 
             this->_L(i,i) = L_i_i( V, i, sum );
 
-            for ( j = i + 1; j < N; ++j ) { // rows
+            for( j = i + 1; j < N; ++j ) { // rows
                 // one element
                 sum = 0.0;
-                for ( k = 0; k < i; ++k ) {
+                for( k = 0; k < i; ++k ) {
                     sum += this->_L(j, k) * this->_L(i, k);
                 }
 
@@ -176,7 +176,7 @@ public:
     }
 
     /** The step of the standard LLT algorithm where round off errors may appear */
-    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const T& sum ) const
     {
         // round-off errors may appear here
         if( V(i,i) - sum < 0 ) {
@@ -202,7 +202,7 @@ template< typename T >
 class LLTabs : public LLT<T>
 {
 public:
-    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const T& sum ) const
     {
         /***** ugly hack *****/
         return sqrt( fabs( V(i,i) - sum) );
@@ -221,7 +221,7 @@ template< typename T >
 class LLTzero : public LLT<T>
 {
 public:
-    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const double& sum ) const
+    inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const T& sum ) const
     {
         T Lii;
         if(  V(i,i) - sum >= 0 ) {
@@ -295,5 +295,77 @@ public:
         return ublas::prod( L, sqrt_D );
     }
 };
+
+
+/** Compute the LL^T Cholesky factorization of a matrix
+ *
+ * with the gaxpy level 2 algorithm without pivoting xPOTF2 used in LAPACK.
+ *
+ * Requires n^3/3 floating point operations.
+ *
+ * Reference:
+ * Craig Lucas, LAPACK-Style Codes for level 2 and 3 Pivoted Cholesky Factorizations, February 5, 2004
+ * Numerical Analysis Report, Manchester Centre for Computational Mathematics, Departements of Mathematics
+ * ISSN 1360-1725
+ */
+template< typename T >
+class Gaxpy : public Cholesky<T>
+{
+public:
+    virtual void factorize( const typename Cholesky<T>::CovarMat& V )
+    {
+        unsigned int N = assert_properties( V );
+        this->_L = V;
+        for( unsigned int i=0; i<N; ++i) {
+            // Level 2 BLAS equivalent pseudo-code:
+            // L(i,i) = L(i,i) - L(i,1:i-1) L(i,1:i-1)^T
+            T sum = 0.0;
+//            for( unsigned int k=1; k<i-1; ++k) {
+//            for( unsigned int k=1; k<i; ++k) {
+            for( unsigned int k=0; k<i; ++k) {
+//            for( unsigned int k=0; k<i-1; ++k) {
+                sum += this->_L(i, k) * this->_L(i, k);
+            }
+            this->_L(i,i) = this->_L(i,i) - sum;
+
+            // L(i,i) = sqrt( L(i,i) )
+            this->_L(i,i) = L_i_i( this->_L(i,i) );
+
+            // if 0 < i < N
+            if( 0 < i && i < N ) {
+                // L(i+1:n,i) = L(i+1:n,i) - L(i+1:n,1:i-1) L(i,1:i-1)^T
+                for( unsigned int j = i+1; j < N; ++j ) {
+                    sum = 0.0;
+//                    for( unsigned int k = 1; k < i-1; ++k ) {
+//                    for( unsigned int k = 1; k < i; ++k ) {
+                    for( unsigned int k = 0; k < i; ++k ) {
+//                    for( unsigned int k = 0; k < i-1; ++k ) {
+                        sum += this->_L(j, k) * this->_L(i, k);
+                    }
+                    this->_L(j,i) = this->_L(j,i) - sum;
+                }
+            } // if 0 < i < N
+
+            if( i < N ) {
+                for( unsigned int j = i+1; j < N; ++j ) {
+                    this->_L(j,i) = this->_L(j,i) / this->_L(i,i);
+                }
+            }
+        } // for i in N
+    }
+
+    /** The step of the standard LLT algorithm where round off errors may appear */
+    inline virtual T L_i_i( const T& lii ) const
+    {
+        // round-off errors may appear here
+        if( lii <= 0 ) {
+            std::ostringstream oss;
+            oss << "L(i,i)==" << lii;
+            throw NotDefinitePositive(oss.str());
+        }
+        return sqrt( lii );
+    }
+};
+
 
 } // namespace cholesky

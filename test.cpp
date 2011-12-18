@@ -140,6 +140,7 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
     algos["LLTa"] = new cholesky::LLTabs<T>;
     algos["LLTz"] = new cholesky::LLTzero<T>;
     algos["LDLT"] = new cholesky::LDLT<T>;
+    algos["Gaxpy"] = new cholesky::Gaxpy<T>;
 
     // init data structures on the same keys than given algorithms
     std::map<std::string,unsigned int> fails;
