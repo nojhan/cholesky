@@ -28,24 +28,28 @@ Authors:
 #include <map>
 #include <vector>
 
+#include <mpreal.h>
+using namespace mpfr;
+
 #include "cholesky.h"
 
 
+template<typename T>
 void setformat( std::ostream& out )
 {
     out << std::right;
     out << std::setfill(' ');
-    out << std::setw( 5 + std::numeric_limits<double>::digits10);
-    out << std::setprecision(std::numeric_limits<double>::digits10);
+    out << std::setw( 5 + std::numeric_limits<T>::digits10);
+    out << std::setprecision(std::numeric_limits<T>::digits10);
     out << std::setiosflags(std::ios_base::showpoint);
 }
 
 
-template<typename MT>
+template<typename T, typename MT>
 std::string format(const MT& mat )
 {
     std::ostringstream out;
-    setformat(out);
+    setformat<T>(out);
 
     for( unsigned int i=0; i<mat.size1(); ++i) {
         for( unsigned int j=0; j<mat.size2(); ++j) {
@@ -67,8 +71,8 @@ T round( T val, T prec = 1.0 )
 }
 
 
-template<typename MT>
-bool equal( const MT& M1, const MT& M2, double prec /* = 1/std::numeric_limits<double>::digits10 ???*/ )
+template<typename T, typename MT>
+bool equal( const MT& M1, const MT& M2, T prec )
 {
     if( M1.size1() != M2.size1() || M1.size2() != M2.size2() ) {
         return false;
@@ -88,12 +92,12 @@ bool equal( const MT& M1, const MT& M2, double prec /* = 1/std::numeric_limits<d
 }
 
 
-template<typename MT >
+template<typename T, typename MT>
 MT error( const MT& M1, const MT& M2 )
 {
     assert( M1.size1() == M2.size1() && M1.size1() == M2.size2() );
 
-    MT Err = ublas::zero_matrix<double>(M1.size1(),M1.size2());
+    MT Err = ublas::zero_matrix<T>(M1.size1(),M1.size2());
 
     for( unsigned int i=0; i<M1.size1(); ++i ) {
         for( unsigned int j=0; j<M1.size2(); ++j ) {
@@ -105,10 +109,10 @@ MT error( const MT& M1, const MT& M2 )
 }
 
 
-template<typename MT >
-double trigsum( const MT& M )
+template<typename T, typename MT>
+T trigsum( const MT& M )
 {
-    double sum = 0;
+    T sum = 0;
     for( unsigned int i=0; i<M.size1(); ++i ) {
         for( unsigned int j=i; j<M.size2(); ++j ) { // triangular browsing
             sum += fabs( M(i,j) ); // absolute deviation
@@ -118,10 +122,10 @@ double trigsum( const MT& M )
 }
 
 
-template<typename T>
-double sum( const T& c )
+template<typename T,typename V>
+T sum( const V& c )
 {
-     return std::accumulate(c.begin(), c.end(), 0);
+     return std::accumulate(c.begin(), c.end(), static_cast<T>(0) );
 }
 
 
@@ -145,10 +149,10 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
     // init data structures on the same keys than given algorithms
     std::map<std::string,unsigned int> fails;
     // triangular errors sum
-    std::map<std::string, std::vector<double> > errors;
+    std::map<std::string, std::vector<T> > errors;
     for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
          fails[ialgo->first] = 0;
-        errors[ialgo->first] = std::vector<double>();
+        errors[ialgo->first] = std::vector<T>();
     }
 
     for( unsigned int n=0; n<R; ++n ) {
@@ -169,7 +173,7 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
 #ifndef NDEBUG
         if( R == 1 ) {
             std::cout << std::endl << "Covariance matrix:" << std::endl;
-            std::cout << format(V) << std::endl;
+            std::cout << format<T>(V) << std::endl;
         }
 #endif
         for( typename AlgoMap::iterator ialgo = algos.begin(); ialgo != algos.end(); ++ialgo ) {
@@ -179,7 +183,7 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
             try {
                 L = (*ialgo->second)(V);
                 CovarMat Vn = ublas::prod( L, ublas::trans(L) );
-                errors[ialgo->first].push_back( trigsum(error(V,Vn)) );
+                errors[ialgo->first].push_back( trigsum<T>(error<T>(V,Vn)) );
 
             } catch( cholesky::NotDefinitePositive & error ) {
                 fails[ialgo->first]++;
@@ -201,7 +205,7 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
             std::cout << "NAN";
         } else {
             assert( errors[a].size() == R - fails[a] );
-            std::cout << sum(errors[a])/R;
+            std::cout << sum<T>(errors[a])/R;
         }
         std::cout << std::endl;
     } // for a in algos
@@ -237,6 +241,7 @@ int main(int argc, char** argv)
     std::clog << "Legend:" << std::endl;
     std::clog << "\tAlgo: (failures/runs)\tAverage error" << std::endl;
 
+    /*
     std::cout << std::endl << "FLOAT" << std::endl;
     test<float>(M,N,F,R,seed);
 
@@ -245,4 +250,10 @@ int main(int argc, char** argv)
 
     std::cout << std::endl << "LONG DOUBLE" << std::endl;
     test<long double>(M,N,F,R,seed);
+    */
+
+    std::cout << std::endl << "MPREAL 128" << std::endl;
+    mpreal::set_default_prec(128);
+    test<mpreal>(M,N,F,R,seed);
 }
+
