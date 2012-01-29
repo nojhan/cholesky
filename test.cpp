@@ -28,9 +28,6 @@ Authors:
 #include <map>
 #include <vector>
 
-#include <mpreal.h>
-using namespace mpfr;
-
 #include "cholesky.h"
 
 
@@ -241,7 +238,6 @@ int main(int argc, char** argv)
     std::clog << "Legend:" << std::endl;
     std::clog << "\tAlgo: (failures/runs)\tAverage error" << std::endl;
 
-    /*
     std::cout << std::endl << "FLOAT" << std::endl;
     test<float>(M,N,F,R,seed);
 
@@ -250,10 +246,5 @@ int main(int argc, char** argv)
 
     std::cout << std::endl << "LONG DOUBLE" << std::endl;
     test<long double>(M,N,F,R,seed);
-    */
-
-    std::cout << std::endl << "MPREAL 128" << std::endl;
-    mpreal::set_default_prec(128);
-    test<mpreal>(M,N,F,R,seed);
 }
 
