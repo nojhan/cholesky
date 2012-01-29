@@ -1,0 +1,20 @@
+
+PROJECT(Cholesky)
+ 
+cmake_minimum_required(VERSION 2.8)
+FIND_PACKAGE(Boost 1.33.0)
+
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
+
+INCLUDE_DIRECTORIES("~/apps/mpfrc++/")
+LINK_DIRECTORIES("~/apps/mpfrc++/")
+LINK_DIRECTORIES("/usr/lib/")
+
+ADD_DEFINITIONS( -Wall -W -Wextra )
+
+ADD_EXECUTABLE(test test.cpp)
+TARGET_LINK_LIBRARIES(test ${Boost_LIBRARIES} gmp mpfr mpreal)
+
