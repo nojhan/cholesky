@@ -55,6 +55,9 @@ public:
     // FIXME check if triangular types behaviour is like having 0
     typedef ublas::matrix< T > FactorMat;
 
+    //! The type of the scalars
+    typedef T AtomType;
+
     /** Instanciate without computing anything, you are responsible of 
      * calling the algorithm and getting the result with operator()
      * */
@@ -322,8 +325,8 @@ public:
             T sum = 0.0;
 //            for( unsigned int k=1; k<i-1; ++k) {
 //            for( unsigned int k=1; k<i; ++k) {
-            for( unsigned int k=0; k<i; ++k) {
-//            for( unsigned int k=0; k<i-1; ++k) {
+//            for( unsigned int k=0; k<i; ++k) {
+            for( unsigned int k=0; k<i-1; ++k) {
                 sum += this->_L(i, k) * this->_L(i, k);
             }
             this->_L(i,i) = this->_L(i,i) - sum;
@@ -338,8 +341,8 @@ public:
                     sum = 0.0;
 //                    for( unsigned int k = 1; k < i-1; ++k ) {
 //                    for( unsigned int k = 1; k < i; ++k ) {
-                    for( unsigned int k = 0; k < i; ++k ) {
-//                    for( unsigned int k = 0; k < i-1; ++k ) {
+//                    for( unsigned int k = 0; k < i; ++k ) {
+                    for( unsigned int k = 0; k < i-1; ++k ) {
                         sum += this->_L(j, k) * this->_L(i, k);
                     }
                     this->_L(j,i) = this->_L(j,i) - sum;
