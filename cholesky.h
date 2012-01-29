@@ -208,7 +208,8 @@ public:
     inline virtual T L_i_i( const typename Cholesky<T>::CovarMat& V, const unsigned int& i, const T& sum ) const
     {
         /***** ugly hack *****/
-        return sqrt( fabs( V(i,i) - sum) );
+        //return sqrt( fabs( V(i,i) - sum) );
+        return sqrt( abs( V(i,i) - sum) );
     }
 };
 

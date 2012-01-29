@@ -28,8 +28,7 @@ Authors:
 #include <map>
 #include <vector>
 
-#include <mpreal.h>
-using namespace mpfr;
+#include <gmpxx.h>
 
 #include "cholesky.h"
 
@@ -115,7 +114,8 @@ T trigsum( const MT& M )
     T sum = 0;
     for( unsigned int i=0; i<M.size1(); ++i ) {
         for( unsigned int j=i; j<M.size2(); ++j ) { // triangular browsing
-            sum += fabs( M(i,j) ); // absolute deviation
+            //sum += fabs( M(i,j) ); // absolute deviation
+            sum += abs( M(i,j) ); // absolute deviation
         }
     }
     return sum;
@@ -168,7 +168,9 @@ void test( unsigned int M, unsigned int N, unsigned int F, unsigned int R, unsig
         // a variance-covariance matrix of size N*N
         // Note: a covariance matrix is necessarily semi-positive definite
         //       thus, any failure in the Cholesky factorization is due to round-off errors
-        CovarMat V = ublas::prod( ublas::trans(S), S );
+        //CovarMat V = ublas::prod( ublas::trans(S), S );
+        CovarMat ST = ublas::trans(S);
+        CovarMat V = ublas::prod( ST, S );
         assert( V.size1() == N && V.size2() == N );
 #ifndef NDEBUG
         if( R == 1 ) {
@@ -252,8 +254,8 @@ int main(int argc, char** argv)
     test<long double>(M,N,F,R,seed);
     */
 
-    std::cout << std::endl << "MPREAL 128" << std::endl;
-    mpreal::set_default_prec(128);
-    test<mpreal>(M,N,F,R,seed);
+    std::cout << std::endl << "MPF 128" << std::endl;
+    mpf_set_default_prec(128);
+    test<mpf_class>(M,N,F,R,seed);
 }
 
